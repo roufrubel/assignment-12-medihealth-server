@@ -37,11 +37,11 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
-    const userCollection = client.db("bistroDb").collection("users");
-    const menuCollection = client.db("bistroDb").collection("menu");
-    const reviewCollection = client.db("bistroDb").collection("reviews");
-    const cartCollection = client.db("bistroDb").collection("carts");
-    const paymentCollection = client.db("bistroDb").collection("payments");
+    const userCollection = client.db("mediHealth").collection("users");
+    const medicineCollection = client.db("mediHealth").collection("medicine");
+    // const reviewCollection = client.db("bistroDb").collection("reviews");
+    // const cartCollection = client.db("bistroDb").collection("carts");
+    // const paymentCollection = client.db("bistroDb").collection("payments");
 
     // middlewares
     const verifyToken = (req, res, next) => {
@@ -72,27 +72,27 @@ async function run() {
     }
 
     // menu related api
-    app.get("/menu", async (req, res) => {
-      const result = await menuCollection.find().toArray();
+    app.get("/medicine", async (req, res) => {
+      const result = await medicineCollection.find().toArray();
       res.send(result);
 
     });
     
-    app.get("/menu/:id", async (req, res) => {
+    app.get("/medicine/:id", async (req, res) => {
       const id = req.params.id;
-      // const query = {_id: new ObjectId(id)};
-      const query = {_id: id};
-      const result = await menuCollection.findOne(query)
+      const query = {_id: new ObjectId(id)};
+      // const query = {_id: id};
+      const result = await medicineCollection.findOne(query)
       res.send(result);
     });
 
-    app.post("/menu", verifyToken, verifyAdmin, async (req, res) => {
+    app.post("/medicine", verifyToken, verifyAdmin, async (req, res) => {
       const item = req.body;
-      const result = await menuCollection.insertOne(item);
+      const result = await medicineCollection.insertOne(item);
       res.send(result);
     })
 
-    app.patch('/menu/:id', async (req, res) => {
+    app.patch('/medicine/:id', async (req, res) => {
       const item = req.body;
       const id = req.params.id;
       const filter ={_id: id};
@@ -106,11 +106,11 @@ async function run() {
         }
       }
 
-      const result = await menuCollection.updateOne(filter, updatedDoc);
+      const result = await medicineCollection.updateOne(filter, updatedDoc);
       res.send(result);
     })
 
-    app.delete('/menu/:id', verifyToken, verifyAdmin, async (req, res) => {
+    app.delete('/medicine/:id', verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       // const query = {_id: new ObjectId(id)};
       const query = {_id: id};
