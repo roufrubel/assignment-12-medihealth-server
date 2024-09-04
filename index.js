@@ -39,8 +39,8 @@ async function run() {
 
     const userCollection = client.db("mediHealth").collection("users");
     const medicineCollection = client.db("mediHealth").collection("medicine");
+    const cartCollection = client.db("mediHealth").collection("carts");
     // const reviewCollection = client.db("bistroDb").collection("reviews");
-    // const cartCollection = client.db("bistroDb").collection("carts");
     // const paymentCollection = client.db("bistroDb").collection("payments");
 
     // middlewares
@@ -118,10 +118,10 @@ async function run() {
       res.send(result);
     })
 
-    app.get("/reviews", async (req, res) => {
-      const result = await reviewCollection.find().toArray();
-      res.send(result);
-    });
+    // app.get("/reviews", async (req, res) => {
+    //   const result = await reviewCollection.find().toArray();
+    //   res.send(result);
+    // });
 
     // cart related api
     app.get("/carts", async (req, res) => {
