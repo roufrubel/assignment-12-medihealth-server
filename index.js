@@ -3,7 +3,7 @@ const app = express();
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY)
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 const port = process.env.PORT || 5000;
 
 // middleware
@@ -13,7 +13,7 @@ app.use(
       "http://localhost:5173",
       "https://assignment-12-medihealth.web.app",
       "https://assignment-12-medihealth.firebaseapp.com",
-    ]
+    ],
   })
 );
 
@@ -40,10 +40,8 @@ async function run() {
     const userCollection = client.db("mediHealth").collection("users");
     const medicineCollection = client.db("mediHealth").collection("medicine");
     const cartCollection = client.db("mediHealth").collection("carts");
-    // const reviewCollection = client.db("bistroDb").collection("reviews");
-    // const paymentCollection = client.db("bistroDb").collection("payments");
 
-    // middlewares
+    // ---------------- middlewares -------------------
     const verifyToken = (req, res, next) => {
       console.log("inside verify token", req.headers.authorization);
       if (!req.headers.authorization) {
@@ -59,30 +57,29 @@ async function run() {
       });
     };
 
-    // use verify admin after verifyToken
+    // -------------- use verify admin after verifyToken ---------------------
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
-      const query = { email: email};
+      const query = { email: email };
       const user = await userCollection.findOne(query);
       const isAdmin = user?.role === "admin";
-      if(!isAdmin){
-        return res.status(403).send({ message: "forbidden access"})
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
       }
       next();
-    }
+    };
 
-    // menu related api
+    // -------------------- medicine related api -----------------------------
     app.get("/medicine", async (req, res) => {
       const result = await medicineCollection.find().toArray();
       res.send(result);
-
     });
-    
+
     app.get("/medicine/:id", async (req, res) => {
       const id = req.params.id;
-      const query = {_id: new ObjectId(id)};
+      const query = { _id: new ObjectId(id) };
       // const query = {_id: id};
-      const result = await medicineCollection.findOne(query)
+      const result = await medicineCollection.findOne(query);
       res.send(result);
     });
 
@@ -90,12 +87,12 @@ async function run() {
       const item = req.body;
       const result = await medicineCollection.insertOne(item);
       res.send(result);
-    })
+    });
 
-    app.patch('/medicine/:id', async (req, res) => {
+    app.patch("/medicine/:id", async (req, res) => {
       const item = req.body;
       const id = req.params.id;
-      const filter ={_id: id};
+      const filter = { _id: id };
       const updatedDoc = {
         $set: {
           name: item.name,
@@ -103,27 +100,23 @@ async function run() {
           price: item.price,
           recipe: item.recipe,
           image: item.image,
-        }
-      }
+        },
+      };
 
       const result = await medicineCollection.updateOne(filter, updatedDoc);
       res.send(result);
-    })
+    });
 
-    app.delete('/medicine/:id', verifyToken, verifyAdmin, async (req, res) => {
+    app.delete("/medicine/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       // const query = {_id: new ObjectId(id)};
-      const query = {_id: id};
+      const query = { _id: id };
       const result = await menuCollection.deleteOne(query);
       res.send(result);
-    })
+    });
 
-    // app.get("/reviews", async (req, res) => {
-    //   const result = await reviewCollection.find().toArray();
-    //   res.send(result);
-    // });
+    // ------------------ cart related api ------------------------
 
-    // cart related api
     app.get("/carts", async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
@@ -138,14 +131,108 @@ async function run() {
       res.send(result);
     });
 
-    app.post("/carts", async (req, res) => {
-      const cartItem = req.body;
-      const result = await cartCollection.insertOne(cartItem);
-      res.send(result);
+    // app.post("/carts", async (req, res) => {
+    //   const cartItem = req.body;
+    //   const result = await cartCollection.insertOne(cartItem);
+    //   res.send(result);
+    // });
+
+    // increase quantity
+    app.patch("/carts/increase/:id", async (req, res) => {
+      const id = req.params.id;
+
+      try {
+        const filter = { _id: new ObjectId(id) };
+        const update = { $inc: { quantity: 1 } }; // increment quantity by 1
+
+        const result = await cartCollection.updateOne(filter, update);
+
+        if (result.modifiedCount > 0) {
+          res.send({ message: "Quantity increased successfully" });
+        } else {
+          res.send({ message: "Failed to increase quantity" });
+        }
+      } catch (error) {
+        console.error("Error increasing quantity:", error);
+        res.status(500).send({ message: "Internal server error" });
+      }
     });
 
+    // Decrease quantity
+    app.patch("/carts/decrease/:id", async (req, res) => {
+      const id = req.params.id;
 
-    // jwt related api
+      try {
+        const filter = { _id: new ObjectId(id) };
+
+        // find the cart item to check its current quantity
+        const cartItem = await cartCollection.findOne(filter);
+
+        if (!cartItem) {
+          return res.status(404).send({ message: "Cart item not found" });
+        }
+
+        if (cartItem.quantity > 1) {
+          // Decrease the quantity by 1
+          const update = { $inc: { quantity: -1 } };
+
+          const result = await cartCollection.updateOne(filter, update);
+
+          if (result.modifiedCount > 0) {
+            res.send({ message: "Quantity decreased successfully" });
+          } else {
+            res.send({ message: "Failed to decrease quantity" });
+          }
+        } else {
+          // if quantity is 1, delete the item from the cart
+          const deleteResult = await cartCollection.deleteOne(filter);
+
+          if(deleteResult.deletedCount > 0){
+            res.send({ message: "Item removed from cart" });
+          } else {
+            res.send({ message: "Failed to remove item from cart" });
+          }
+
+        }
+
+      } catch (error) {
+        console.error("Error decreasing quantity:", error);
+        res.status(500).send({ message: "Internal server error"});
+      }
+    });
+
+    app.post("/carts", async (req, res) => {
+      const { medicineId, email, name, image, price, category } = req.body;
+
+      // Check if item already exists in cart for the user
+      const existingCartItem = await cartCollection.findOne({
+        medicineId,
+        email,
+      });
+
+      if (existingCartItem) {
+        // If item exists, increase the quantity
+        const filter = { _id: existingCartItem._id };
+        const update = { $inc: { quantity: 1 } }; // increase quantity by 1
+        const result = await cartCollection.updateOne(filter, update);
+        res.send(result);
+      } else {
+        // If item does not exist, add it to the cart with quantity 1
+        const cartItem = {
+          medicineId,
+          email,
+          name,
+          image,
+          price,
+          category,
+          quantity: 1,
+        };
+        const result = await cartCollection.insertOne(cartItem);
+        res.send(result);
+      }
+    });
+
+    // --------------------- jwt related api --------------------------
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
@@ -154,18 +241,23 @@ async function run() {
       res.send({ token });
     });
 
-    // users related api
-    app.patch("/users/admin/:id", verifyToken, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          role: "admin",
-        },
-      };
-      const result = await userCollection.updateOne(filter, updatedDoc);
-      res.send(result);
-    });
+    // ------------------- users related api ----------------------------
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
+        const result = await userCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
 
     app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
@@ -180,6 +272,7 @@ async function run() {
     });
 
     app.get("/users/admin/:email", verifyToken, async (req, res) => {
+      // app.get("/users/admin/:email",  async (req, res) => {
       const email = req.params.email;
       if (email !== req.decoded.email) {
         return res.status(403).send({ message: "forbidden access" });
@@ -207,115 +300,119 @@ async function run() {
       res.send(result);
     });
 
-    // payment intent
-app.post('/create-payment-intent', async (req, res) => {
-  const {price} = req.body;
-  const amount = parseInt(price * 100);
-  console.log(amount, 'amount inside payment intent')
+    // --------------------- payment intent --------------------------------
+    app.post("/create-payment-intent", async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      console.log(amount, "amount inside payment intent");
 
-  const paymentIntent = await stripe.paymentIntents.create({
-    amount: amount,
-    currency: 'usd',
-    payment_method_types: ['card']
-  });
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
 
-  res.send({
-    clientSecret: paymentIntent.client_secret,
-  })
-})
+      res.send({
+        clientSecret: paymentIntent.client_secret,
+      });
+    });
 
-app.get('/payments/:email', verifyToken, async (req, res) => {
-  const query = {email: req.params.email};
-  if(req.params.email !== req.decoded.email){
-    return res.status(403).send({message: 'forbidden access'});
-  }
-  const result = await paymentCollection.find(query).toArray();
-  res.send(result);
-})
-
-app.post('/payments', async (req, res) => {
-  const payment = req.body;
-  const paymentResult = await paymentCollection.insertOne(payment);
-
-  // carefully delete each item from the cart 
-  console.log('payment info', payment);
-  const query = {_id: {
-    $in: payment.cartIds.map(id => new  ObjectId(id))
-  }};
-
-  const deleteResult = await cartCollection.deleteMany(query);
-res.send({paymentResult, deleteResult});
-})
-
-// stats or analytics
-app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
-  const users = await userCollection.estimatedDocumentCount();
-  const menuItems = await menuCollection.estimatedDocumentCount();
-  const orders = await paymentCollection.estimatedDocumentCount();
-
-  // this is not the best way
-  // const payments = await paymentCollection.find().toArray();
-  // const revenue = payments.reduce((total, payment) => total + payment.price, 0)
-
-  const result = await paymentCollection.aggregate([
-    {
-      $group: {
-        _id: null,
-        totalRevenue: {
-          $sum: '$price'
-        }
+    app.get("/payments/:email", verifyToken, async (req, res) => {
+      const query = { email: req.params.email };
+      if (req.params.email !== req.decoded.email) {
+        return res.status(403).send({ message: "forbidden access" });
       }
-    }
-  ]).toArray();
+      const result = await paymentCollection.find(query).toArray();
+      res.send(result);
+    });
 
-  const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+    app.post("/payments", async (req, res) => {
+      const payment = req.body;
+      const paymentResult = await paymentCollection.insertOne(payment);
 
-  res.send({
-    users, menuItems, orders, revenue
-  })
-})
+      // carefully delete each item from the cart
+      console.log("payment info", payment);
+      const query = {
+        _id: {
+          $in: payment.cartIds.map((id) => new ObjectId(id)),
+        },
+      };
 
-// using aggregate pipeline
-app.get('/order-stats', verifyToken, verifyAdmin, async (req, res) => {
-  const result = await paymentCollection.aggregate([
-    {
-      $unwind: '$menuItemIds'
-    },
-    {
-      $lookup: {
-        from: 'menu',
-        localField: 'menuItemIds',
-        foreignField: '_id',
-        as: 'menuItems'
-      }
-    },
-    {
-      $unwind: '$menuItems'
-    },
-    {
-      $group: {
-        _id: '$menuItems.category',
-        quantity: { $sum: 1 },
-        revenue: { $sum: '$menuItems.price' },
+      const deleteResult = await cartCollection.deleteMany(query);
+      res.send({ paymentResult, deleteResult });
+    });
 
-      }
-    },
-    {
-      $project: {
-        _id: 0,
-        category: '$_id',
-        quantity: '$quantity',
-        revenue: '$revenue'
-      }
-     
+    // --------------------------- stats or analytics ---------------------
+    app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
+      const users = await userCollection.estimatedDocumentCount();
+      const menuItems = await menuCollection.estimatedDocumentCount();
+      const orders = await paymentCollection.estimatedDocumentCount();
 
-    }
+      // this is not the best way
+      // const payments = await paymentCollection.find().toArray();
+      // const revenue = payments.reduce((total, payment) => total + payment.price, 0)
 
+      const result = await paymentCollection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              totalRevenue: {
+                $sum: "$price",
+              },
+            },
+          },
+        ])
+        .toArray();
 
-  ]).toArray();
+      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
 
-  res.send(result);
-})
+      res.send({
+        users,
+        menuItems,
+        orders,
+        revenue,
+      });
+    });
+
+    // --------------------------- using aggregate pipeline -------------------
+    app.get("/order-stats", verifyToken, verifyAdmin, async (req, res) => {
+      const result = await paymentCollection
+        .aggregate([
+          {
+            $unwind: "$menuItemIds",
+          },
+          {
+            $lookup: {
+              from: "menu",
+              localField: "menuItemIds",
+              foreignField: "_id",
+              as: "menuItems",
+            },
+          },
+          {
+            $unwind: "$menuItems",
+          },
+          {
+            $group: {
+              _id: "$menuItems.category",
+              quantity: { $sum: 1 },
+              revenue: { $sum: "$menuItems.price" },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              category: "$_id",
+              quantity: "$quantity",
+              revenue: "$revenue",
+            },
+          },
+        ])
+        .toArray();
+
+      res.send(result);
+    });
 
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
