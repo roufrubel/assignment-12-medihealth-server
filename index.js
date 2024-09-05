@@ -4,7 +4,9 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
 const port = process.env.PORT || 5000;
+
 
 // middleware
 app.use(
@@ -58,6 +60,7 @@ async function run() {
       });
     };
 
+
     // -------------- use verify admin after verifyToken ---------------------
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded.email;
@@ -70,11 +73,13 @@ async function run() {
       next();
     };
 
+
     // -------------------- medicine related api -----------------------------
     app.get("/medicine", async (req, res) => {
       const result = await medicineCollection.find().toArray();
       res.send(result);
     });
+
 
     app.get("/medicine/:id", async (req, res) => {
       const id = req.params.id;
@@ -84,11 +89,13 @@ async function run() {
       res.send(result);
     });
 
+
     app.post("/medicine", verifyToken, verifyAdmin, async (req, res) => {
       const item = req.body;
       const result = await medicineCollection.insertOne(item);
       res.send(result);
     });
+
 
     app.patch("/medicine/:id", async (req, res) => {
       const item = req.body;
@@ -108,13 +115,15 @@ async function run() {
       res.send(result);
     });
 
+
     app.delete("/medicine/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       // const query = {_id: new ObjectId(id)};
       const query = { _id: id };
-      const result = await menuCollection.deleteOne(query);
+      const result = await medicineCollection.deleteOne(query);
       res.send(result);
     });
+
 
     // ------------------ cart related api ------------------------
 
@@ -201,6 +210,7 @@ async function run() {
         res.status(500).send({ message: "Internal server error"});
       }
     });
+
 
     app.post("/carts", async (req, res) => {
       const { medicineId, email, name, image, price, category } = req.body;
@@ -343,78 +353,7 @@ async function run() {
       res.send({ paymentResult, deleteResult });
     });
 
-    // --------------------------- stats or analytics ---------------------
-    app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
-      const users = await userCollection.estimatedDocumentCount();
-      const menuItems = await menuCollection.estimatedDocumentCount();
-      const orders = await paymentCollection.estimatedDocumentCount();
-
-      // this is not the best way
-      // const payments = await paymentCollection.find().toArray();
-      // const revenue = payments.reduce((total, payment) => total + payment.price, 0)
-
-      const result = await paymentCollection
-        .aggregate([
-          {
-            $group: {
-              _id: null,
-              totalRevenue: {
-                $sum: "$price",
-              },
-            },
-          },
-        ])
-        .toArray();
-
-      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
-
-      res.send({
-        users,
-        menuItems,
-        orders,
-        revenue,
-      });
-    });
-
-    // --------------------------- using aggregate pipeline -------------------
-    app.get("/order-stats", verifyToken, verifyAdmin, async (req, res) => {
-      const result = await paymentCollection
-        .aggregate([
-          {
-            $unwind: "$menuItemIds",
-          },
-          {
-            $lookup: {
-              from: "menu",
-              localField: "menuItemIds",
-              foreignField: "_id",
-              as: "menuItems",
-            },
-          },
-          {
-            $unwind: "$menuItems",
-          },
-          {
-            $group: {
-              _id: "$menuItems.category",
-              quantity: { $sum: 1 },
-              revenue: { $sum: "$menuItems.price" },
-            },
-          },
-          {
-            $project: {
-              _id: 0,
-              category: "$_id",
-              quantity: "$quantity",
-              revenue: "$revenue",
-            },
-          },
-        ])
-        .toArray();
-
-      res.send(result);
-    });
-
+    
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
     console.log(
