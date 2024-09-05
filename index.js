@@ -40,6 +40,7 @@ async function run() {
     const userCollection = client.db("mediHealth").collection("users");
     const medicineCollection = client.db("mediHealth").collection("medicine");
     const cartCollection = client.db("mediHealth").collection("carts");
+    const paymentCollection = client.db("mediHealth").collection("payments");
 
     // ---------------- middlewares -------------------
     const verifyToken = (req, res, next) => {
