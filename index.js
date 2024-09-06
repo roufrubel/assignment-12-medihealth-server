@@ -270,12 +270,49 @@ async function run() {
       }
     );
 
-    app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
-      const id = req.params.id;
-      const query = { _id: new ObjectId(id) };
-      const result = await userCollection.deleteOne(query);
-      res.send(result);
-    });
+
+    app.patch(
+      "/users/seller/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: "seller",
+          },
+        };
+        const result = await userCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
+
+
+    app.patch(
+      "/users/user/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: "user",
+          },
+        };
+        const result = await userCollection.updateOne(filter, updatedDoc);
+        res.send(result);
+      }
+    );
+
+
+    // app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
+    //   const id = req.params.id;
+    //   const query = { _id: new ObjectId(id) };
+    //   const result = await userCollection.deleteOne(query);
+    //   res.send(result);
+    // });
 
     app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const result = await userCollection.find().toArray();
@@ -352,6 +389,69 @@ async function run() {
       const deleteResult = await cartCollection.deleteMany(query);
       res.send({ paymentResult, deleteResult });
     });
+
+
+
+    // ----------------  stats or analytics --------------------------------
+app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
+
+  const result = await paymentCollection.aggregate([
+    {
+      $group: {
+        _id: null,
+        totalRevenue: {
+          $sum: '$price'
+        }
+      }
+    }
+  ]).toArray();
+
+  const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+
+  res.send({
+     revenue
+  })
+})
+
+// ------------------- using aggregate pipeline----------------
+app.get('/order-stats', verifyToken, verifyAdmin, async (req, res) => {
+  const result = await paymentCollection.aggregate([
+    {
+      $unwind: '$medicineItemIds'
+    },
+    {
+      $lookup: {
+        from: 'medicine',
+        localField: 'medicineItemIds',
+        foreignField: '_id',
+        as: 'medicineItems'
+      }
+    },
+    {
+      $unwind: '$medicineItems'
+    },
+    {
+      $group: {
+        _id: '$medicineItems.category',
+        quantity: { $sum: 1 },
+        revenue: { $sum: '$medicineItems.price' },
+
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        category: '$_id',
+        quantity: '$quantity',
+        revenue: '$revenue'
+      }     
+
+    }
+
+  ]).toArray();
+
+  res.send(result);
+})
 
     
     // Send a ping to confirm a successful connection
