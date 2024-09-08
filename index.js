@@ -100,14 +100,16 @@ async function run() {
     app.patch("/medicine/:id", async (req, res) => {
       const item = req.body;
       const id = req.params.id;
-      const filter = { _id: id };
+      const filter = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
-          name: item.name,
           category: item.category,
+          name: item.name,
           price: item.price,
-          recipe: item.recipe,
+          quantity: item.quantity,
+          dosage: item.dosage,
           image: item.image,
+          short_description: item.short_description,
         },
       };
 
@@ -119,7 +121,7 @@ async function run() {
     app.delete("/medicine/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       // const query = {_id: new ObjectId(id)};
-      const query = { _id: id };
+      const query = { _id: new ObjectId(id) };
       const result = await medicineCollection.deleteOne(query);
       res.send(result);
     });
@@ -363,6 +365,34 @@ async function run() {
       res.send({
         clientSecret: paymentIntent.client_secret,
       });
+    });
+
+
+    app.patch('/payments/:id', verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const { status } = req.body;
+      const query = { _id: new ObjectId(id) };
+      const update = { 
+        $set: { status: status }
+       }
+    
+      try {
+        const result = await paymentCollection.updateOne(query, update);
+    
+        if (result.modifiedCount > 0) {
+          res.status(200).send({ modifiedCount: result.modifiedCount });
+        } else {
+          res.status(404).send('Payment not found');
+        }
+      } catch (error) {
+        console.error('Error updating payment status:', error);
+        res.status(500).send('Internal server error');
+      }
+    });
+
+    app.get("/payments", verifyToken, verifyAdmin, async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      res.send(result);
     });
 
     app.get("/payments/:email", verifyToken, async (req, res) => {
