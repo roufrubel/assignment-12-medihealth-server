@@ -215,12 +215,12 @@ async function run() {
 
 
     app.post("/carts", async (req, res) => {
-      const { medicineId, email, name, image, price, category } = req.body;
+      const { medicineId, buyerEmail, name, image, price, category, sellerEmail } = req.body;
 
       // Check if item already exists in cart for the user
       const existingCartItem = await cartCollection.findOne({
         medicineId,
-        email,
+        buyerEmail
       });
 
       if (existingCartItem) {
@@ -233,11 +233,12 @@ async function run() {
         // If item does not exist, add it to the cart with quantity 1
         const cartItem = {
           medicineId,
-          email,
+          buyerEmail,
           name,
           image,
           price,
           category,
+          sellerEmail,
           quantity: 1,
         };
         const result = await cartCollection.insertOne(cartItem);
