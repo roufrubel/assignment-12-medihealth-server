@@ -338,6 +338,22 @@ async function run() {
       res.send({ admin });
     });
 
+    app.get("/users/seller/:email", verifyToken, async (req, res) => {
+      // app.get("/users/seller/:email",  async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let seller = false;
+      if (user) {
+        seller = user?.role === "seller";
+      }
+      res.send({ seller });
+    });
+
     app.post("/users", async (req, res) => {
       const user = req.body;
       // insert email if user doesn't exists
@@ -391,7 +407,9 @@ async function run() {
       }
     });
 
-    app.get("/payments", verifyToken, verifyAdmin, async (req, res) => {
+    // TODO: need to add verifySeller
+    app.get("/payments", verifyToken,  async (req, res) => {
+    // app.get("/payments", verifyToken, verifyAdmin, async (req, res) => {
       const result = await paymentCollection.find().toArray();
       res.send(result);
     });
