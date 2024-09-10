@@ -43,6 +43,7 @@ async function run() {
     const medicineCollection = client.db("mediHealth").collection("medicine");
     const cartCollection = client.db("mediHealth").collection("carts");
     const paymentCollection = client.db("mediHealth").collection("payments");
+    const advertisementCollection = client.db("mediHealth").collection("advertisement");
 
     // ---------------- middlewares -------------------
     const verifyToken = (req, res, next) => {
@@ -441,6 +442,55 @@ async function run() {
 
 
 
+    // -------------- advertisement api -----------------------------
+
+    
+   // Function to handle the PATCH request for updating advertisement status
+app.patch("/advertisement/:id", async (req, res) => {
+  const { id } = req.params; // Get the ID from the route params
+  const { status } = req.body; // Get the new status from the request body
+
+  try {
+    // Ensure the provided status is valid
+    if (!["used", "not used"].includes(status)) {
+      return res.status(400).send({ error: "Invalid status value" });
+    }
+
+    // Update the advertisement document in MongoDB by its _id
+    const result = await advertisementCollection.updateOne(
+      { _id: new ObjectId(id) }, // Find the advertisement by its _id
+      { $set: { status } } // Update the status field
+    );
+
+    // Send the result back to the client
+    if (result.modifiedCount > 0) {
+      res.send({ success: true, modifiedCount: result.modifiedCount });
+    } else {
+      res.status(404).send({ success: false, message: "Advertisement not found or status unchanged" });
+    }
+  } catch (error) {
+    // Handle errors (e.g., invalid ID format)
+    res.status(500).send({ error: "Internal server error" });
+  }
+});
+
+
+    
+    app.get("/advertisement", async (req, res) => {
+      const result = await advertisementCollection.find().toArray();
+      res.send(result);
+    });  
+
+
+    app.post("/advertisement",  async (req, res) => {
+      const item = req.body;
+      const result = await advertisementCollection.insertOne(item);
+      res.send(result);
+    });
+
+
+
+
     // ----------------  stats or analytics --------------------------------
 app.get('/admin-stats', verifyToken, verifyAdmin, async (req, res) => {
 
@@ -505,9 +555,10 @@ app.get('/order-stats', verifyToken, verifyAdmin, async (req, res) => {
     
     // Send a ping to confirm a successful connection
     // await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
+
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
